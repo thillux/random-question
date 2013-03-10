@@ -11,7 +11,7 @@
 #include <vector>
 
 void readQuestions(std::string questionFileName, std::vector<std::string>& questions) {
-  std::ifstream questionFile(questionFileName);
+  std::ifstream questionFile(questionFileName.c_str());
 
   while(questionFile) {
     std::string line;
