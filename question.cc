@@ -10,16 +10,13 @@
 #include <unistd.h>
 #include <vector>
 
-void readQuestions(std::string questionFileName, std::vector<std::string>& questions) {
-  std::ifstream questionFile(questionFileName.c_str());
-
+void readQuestions(std::ifstream& questionFile, std::vector<std::string>& questions) {
   while(questionFile) {
     std::string line;
     std::getline(questionFile, line);
     if (line.length() > 1)
       questions.push_back(line);
   }
-
   std::sort(questions.begin(), questions.end());
 }
 
@@ -32,11 +29,28 @@ unsigned int getRnd(void) {
   return rndNumber;
 }
 
-int main(void) {
-  const std::string FILENAME("questions");
-  std::vector<std::string> * questions = new std::vector<std::string>;
+void usage(void) {
+    std::cout << "usage: ./question filename" << std::endl;
+}
 
-  readQuestions(FILENAME, *questions);
+int main(int argc, char ** argv) {
+  if (argc != 2) {
+      usage();
+      return EXIT_FAILURE;
+  }
+
+  std::string filename(argv[1]);
+  std::vector<std::string> * questions = new std::vector<std::string>;
+    
+  std::ifstream questionFile(filename.c_str());
+  if (questionFile.good()) {
+      readQuestions(questionFile, *questions);
+  }
+  else {
+      std::cerr << "Can't open given file " << filename << std::endl;
+      return EXIT_FAILURE;
+  }
+  questionFile.close();
 
   std::vector<std::string> * todo = new std::vector<std::string>(*questions);
   std::vector<std::string> * done = new std::vector<std::string>;
