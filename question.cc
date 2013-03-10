@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <vector>
+#include <regex>
 
 void readQuestions(std::ifstream& questionFile, std::vector<std::string>& questions) {
   while(questionFile) {
