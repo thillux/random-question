@@ -10,6 +10,20 @@
 #include <unistd.h>
 #include <vector>
 #include <regex.h>
+#include <sys/time.h>
+#include <termios.h>
+
+// http://stackoverflow.com/questions/1413445/read-a-password-from-stdcin
+void setStdinEcho(bool enable = true) {
+    struct termios tty;
+    tcgetattr(STDIN_FILENO, &tty);
+    if( !enable )
+        tty.c_lflag &= ~ECHO;
+    else
+        tty.c_lflag |= ECHO;
+
+    (void) tcsetattr(STDIN_FILENO, TCSANOW, &tty);
+}
 
 void readQuestions(std::ifstream& questionFile, std::vector<std::string>& questions) {
   int rv;
@@ -64,6 +78,8 @@ int main(int argc, char ** argv) {
   std::vector<std::string> * done = new std::vector<std::string>;
 
   std::string question;
+  timeval * starttime = new timeval;
+  timeval * endtime = new timeval;
   while(true) {
     int id = getRnd() % todo->size();
     question = (*todo)[id];
@@ -71,13 +87,22 @@ int main(int argc, char ** argv) {
     done->push_back(question);
 
     std::cout << question << std::endl;
-
+    gettimeofday(starttime, NULL);
+    
     if (todo->empty())
       std::swap(todo, done);
-
+    
+    setStdinEcho(false);
     std::cin.get();
+    setStdinEcho(true);
+    gettimeofday(endtime, NULL);
+    double elapsed_time = static_cast<double>(endtime->tv_sec) + static_cast<double>(endtime->tv_usec) * 1E-6;
+    elapsed_time -= static_cast<double>(starttime->tv_sec) + static_cast<double>(starttime->tv_usec) * 1E-6;
+    std::cout <<  elapsed_time << " seconds for answer!" << std::endl;
   }
-
+  
+  delete starttime;
+  delete endtime;
   delete todo;
   delete done;
 
