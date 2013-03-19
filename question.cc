@@ -88,19 +88,20 @@ int main(int argc, char ** argv) {
 
     std::cout << question << std::endl;
     gettimeofday(starttime, NULL);
-    
-    if (todo->empty())
-      std::swap(todo, done);
-    
-    setStdinEcho(false);
+
+        setStdinEcho(false);
     std::cin.get();
     setStdinEcho(true);
     gettimeofday(endtime, NULL);
     double elapsed_time = static_cast<double>(endtime->tv_sec) + static_cast<double>(endtime->tv_usec) * 1E-6;
     elapsed_time -= static_cast<double>(starttime->tv_sec) + static_cast<double>(starttime->tv_usec) * 1E-6;
     std::cout <<  elapsed_time << " seconds for answer!" << std::endl;
+    if (todo->empty()) {
+        std::swap(todo, done);
+        std::cout << "### Complete, starting again. ###" << std::endl;
+    }
   }
-  
+
   delete starttime;
   delete endtime;
   delete todo;
