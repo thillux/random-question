@@ -1,20 +1,44 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
-#include <fcntl.h>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
-#include <vector>
-#include <regex.h>
-#include <sys/time.h>
-#include <termios.h>
+#include <regex>
+#include <chrono>
+#ifdef __gnu_linux__
+	#include <unistd.h>
+	#include <sys/time.h>
+	#include <termios.h>
+	#include <regex.h>
+	#include <fcntl.h>
+#endif // __gnu_linux__
+
+#ifdef WIN32
+	#include <Windows.h>
+#endif
+
+
 
 // http://stackoverflow.com/questions/1413445/read-a-password-from-stdcin
-void setStdinEcho(bool enable = true) {
+void SetStdinEcho(bool enable = true)
+{
+#ifdef WIN32
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE); 
+    DWORD mode;
+    GetConsoleMode(hStdin, &mode);
+
+    if( !enable )
+        mode &= ~ENABLE_ECHO_INPUT;
+    else
+        mode |= ENABLE_ECHO_INPUT;
+
+    SetConsoleMode(hStdin, mode );
+
+#else
     struct termios tty;
     tcgetattr(STDIN_FILENO, &tty);
     if( !enable )
@@ -23,31 +47,34 @@ void setStdinEcho(bool enable = true) {
         tty.c_lflag |= ECHO;
 
     (void) tcsetattr(STDIN_FILENO, TCSANOW, &tty);
+#endif
 }
 
 void readQuestions(std::ifstream& questionFile, std::vector<std::string>& questions) {
-  int rv;
-  regex_t * exp = new regex_t;
-  rv = regcomp(exp, "^//.*", REG_EXTENDED);
-  if (rv != 0) {
-    std::cout << "regcomp failed with " << rv << std::endl;
-  }
+  std::regex testRegex("^//.*", std::regex_constants::extended);
   while(questionFile) {
     std::string line;
     std::getline(questionFile, line);
-    if (line.length() > 1 && regexec(exp, line.c_str(), 0, NULL, 0) == REG_NOMATCH)
+    if (line.length() > 1 && !std::regex_match(line, testRegex))
       questions.push_back(line);
   }
   std::sort(questions.begin(), questions.end());
-  regfree(exp);
 }
 
 unsigned int getRnd(void) {
+  unsigned int rndNumber = 0;
+#ifdef __gnu_linux__
   int urandom = open("/dev/urandom", O_RDONLY);
   assert(urandom);
-  unsigned int rndNumber;
   read(urandom, &rndNumber, sizeof(unsigned int));
   close(urandom);
+#endif
+#ifdef WIN32
+  HCRYPTPROV hProvider = 0;
+  CryptAcquireContextW(&hProvider, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT);
+  CryptGenRandom(hProvider, sizeof(unsigned int), reinterpret_cast<BYTE*>(&rndNumber));
+  CryptReleaseContext(hProvider, 0);
+#endif
   return rndNumber;
 }
 
@@ -87,15 +114,15 @@ int main(int argc, char ** argv) {
     done->push_back(question);
 
     std::cout << question << std::endl;
-    gettimeofday(starttime, NULL);
-
-        setStdinEcho(false);
+	typedef std::chrono::high_resolution_clock clock;
+	typedef std::chrono::milliseconds milliseconds;
+	clock::time_point t0 = clock::now();
+	SetStdinEcho(false);
     std::cin.get();
-    setStdinEcho(true);
-    gettimeofday(endtime, NULL);
-    double elapsed_time = static_cast<double>(endtime->tv_sec) + static_cast<double>(endtime->tv_usec) * 1E-6;
-    elapsed_time -= static_cast<double>(starttime->tv_sec) + static_cast<double>(starttime->tv_usec) * 1E-6;
-    std::cout <<  elapsed_time << " seconds for answer!" << std::endl;
+    SetStdinEcho(true);
+    clock::time_point t1 = clock::now();
+    milliseconds total_ms = std::chrono::duration_cast<milliseconds>(t1 - t0);
+    std::cout <<  total_ms.count() / 1000.0 << " seconds for answer!" << std::endl;
     if (todo->empty()) {
         std::swap(todo, done);
         std::cout << "### Complete, starting again. ###" << std::endl;
