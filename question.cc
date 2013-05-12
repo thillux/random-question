@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <regex>
 #include <chrono>
+#include <memory>
 #ifdef __gnu_linux__
 	#include <unistd.h>
 	#include <sys/time.h>
@@ -16,7 +17,6 @@
 	#include <regex.h>
 	#include <fcntl.h>
 #endif // __gnu_linux__
-
 #ifdef WIN32
 	#include <Windows.h>
 #endif
@@ -24,8 +24,7 @@
 
 
 // http://stackoverflow.com/questions/1413445/read-a-password-from-stdcin
-void SetStdinEcho(bool enable = true)
-{
+void SetStdinEcho(bool enable = true) {
 #ifdef WIN32
     HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE); 
     DWORD mode;
@@ -36,8 +35,7 @@ void SetStdinEcho(bool enable = true)
     else
         mode |= ENABLE_ECHO_INPUT;
 
-    SetConsoleMode(hStdin, mode );
-
+    SetConsoleMode(hStdin, mode);
 #else
     struct termios tty;
     tcgetattr(STDIN_FILENO, &tty);
@@ -51,12 +49,14 @@ void SetStdinEcho(bool enable = true)
 }
 
 void readQuestions(std::ifstream& questionFile, std::vector<std::string>& questions) {
-  std::regex testRegex("^//.*", std::regex_constants::extended);
+  std::regex testRegex("^//.*$");
   while(questionFile) {
     std::string line;
     std::getline(questionFile, line);
-    if (line.length() > 1 && !std::regex_match(line, testRegex))
+    if (line.length() > 0 && !std::regex_match(line, testRegex)) {
       questions.push_back(line);
+	  std::cout << line << std::endl;
+	}
   }
   std::sort(questions.begin(), questions.end());
 }
@@ -64,16 +64,16 @@ void readQuestions(std::ifstream& questionFile, std::vector<std::string>& questi
 unsigned int getRnd(void) {
   unsigned int rndNumber = 0;
 #ifdef __gnu_linux__
-  int urandom = open("/dev/urandom", O_RDONLY);
+  int urandom = open("/dev/urandom", o_rdonly);
   assert(urandom);
-  read(urandom, &rndNumber, sizeof(unsigned int));
+  read(urandom, &rndnumber, sizeof(unsigned int));
   close(urandom);
 #endif
 #ifdef WIN32
-  HCRYPTPROV hProvider = 0;
-  CryptAcquireContextW(&hProvider, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT);
-  CryptGenRandom(hProvider, sizeof(unsigned int), reinterpret_cast<BYTE*>(&rndNumber));
-  CryptReleaseContext(hProvider, 0);
+  HCRYPTPROV hprovider = 0;
+  CryptAcquireContext(&hprovider, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT);
+  CryptGenRandom(hprovider, sizeof(unsigned int), reinterpret_cast<byte*>(&rndNumber));
+  CryptReleaseContext(hprovider, 0);
 #endif
   return rndNumber;
 }
@@ -88,39 +88,48 @@ int main(int argc, char ** argv) {
       return EXIT_FAILURE;
   }
 
+  typedef std::vector<std::string> StringVector;
+  typedef std::shared_ptr<StringVector> StringVector_Ptr;
+
   std::string filename(argv[1]);
-  std::vector<std::string> * questions = new std::vector<std::string>;
+  StringVector_Ptr questions(new StringVector);
 
   std::ifstream questionFile(filename.c_str());
-  if (questionFile.good()) {
-      readQuestions(questionFile, *questions);
-  }
+  if (questionFile.good())
+	  readQuestions(questionFile, *questions);
   else {
       std::cerr << "Can't open given file " << filename << std::endl;
       return EXIT_FAILURE;
   }
   questionFile.close();
+  
+  // Do we have any questions? % todo->size is DIV_BY_ZERO otherwise
+  if (questions->size() == 0) {
+	  std::cerr << "No question provided!" << std::endl;
+	  return EXIT_FAILURE;
+  }
 
-  std::vector<std::string> * todo = new std::vector<std::string>(*questions);
-  std::vector<std::string> * done = new std::vector<std::string>;
+  StringVector_Ptr todo(new StringVector(*questions));
+  StringVector_Ptr done(new StringVector);
 
+  typedef std::chrono::high_resolution_clock clock;
+  typedef std::chrono::milliseconds milliseconds;
+  clock::time_point t0;
+  clock::time_point t1;
   std::string question;
-  timeval * starttime = new timeval;
-  timeval * endtime = new timeval;
+  int id = 0;
   while(true) {
-    int id = getRnd() % todo->size();
+    id = getRnd() % todo->size();
     question = (*todo)[id];
     todo->erase(std::find(todo->begin(), todo->end(), question));
     done->push_back(question);
 
     std::cout << question << std::endl;
-	typedef std::chrono::high_resolution_clock clock;
-	typedef std::chrono::milliseconds milliseconds;
-	clock::time_point t0 = clock::now();
 	SetStdinEcho(false);
+	t0 = clock::now();
     std::cin.get();
+	t1 = clock::now();
     SetStdinEcho(true);
-    clock::time_point t1 = clock::now();
     milliseconds total_ms = std::chrono::duration_cast<milliseconds>(t1 - t0);
     std::cout <<  total_ms.count() / 1000.0 << " seconds for answer!" << std::endl;
     if (todo->empty()) {
@@ -128,11 +137,6 @@ int main(int argc, char ** argv) {
         std::cout << "### Complete, starting again. ###" << std::endl;
     }
   }
-
-  delete starttime;
-  delete endtime;
-  delete todo;
-  delete done;
 
   return EXIT_SUCCESS;
 }
