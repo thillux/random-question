@@ -16,17 +16,16 @@
 	#include <termios.h>
 	#include <regex.h>
 	#include <fcntl.h>
-#endif // __gnu_linux__
+#endif
 #ifdef WIN32
 	#include <Windows.h>
 #endif
 
 
-
 // http://stackoverflow.com/questions/1413445/read-a-password-from-stdcin
 void SetStdinEcho(bool enable = true) {
 #ifdef WIN32
-    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE); 
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
     DWORD mode;
     GetConsoleMode(hStdin, &mode);
 
@@ -48,15 +47,33 @@ void SetStdinEcho(bool enable = true) {
 #endif
 }
 
+bool testForComment(std::string& line) {
+  #ifdef WIN32
+  std::regex testRegex("^//.*$", std::regex_constants::extended);
+  return std::regex_match(line, testRegex);
+  #endif
+
+  // stdlibc++ wasn't feature complete for C++11 at the time writing this code
+  // FIXME: if c++ lib supports this, remove the following code
+  #ifdef __gnu_linux__
+  int rv;
+  regex_t * exp = new regex_t;
+  rv = regcomp(exp, "^//.*", REG_EXTENDED);
+  if (rv != 0) {
+    std::cout << "regcomp failed with " << rv << std::endl;
+  }
+  bool match = regexec(exp, line.c_str(), 0, NULL, 0) == 0;
+  regfree(exp);
+  return match;
+  #endif
+}
+
 void readQuestions(std::ifstream& questionFile, std::vector<std::string>& questions) {
-  std::regex testRegex("^//.*$");
   while(questionFile) {
     std::string line;
     std::getline(questionFile, line);
-    if (line.length() > 0 && !std::regex_match(line, testRegex)) {
+    if (line.length() > 0 && !testForComment(line))
       questions.push_back(line);
-	  std::cout << line << std::endl;
-	}
   }
   std::sort(questions.begin(), questions.end());
 }
@@ -64,9 +81,9 @@ void readQuestions(std::ifstream& questionFile, std::vector<std::string>& questi
 unsigned int getRnd(void) {
   unsigned int rndNumber = 0;
 #ifdef __gnu_linux__
-  int urandom = open("/dev/urandom", o_rdonly);
+  int urandom = open("/dev/urandom", O_RDONLY);
   assert(urandom);
-  read(urandom, &rndnumber, sizeof(unsigned int));
+  read(urandom, &rndNumber, sizeof(unsigned int));
   close(urandom);
 #endif
 #ifdef WIN32
@@ -102,7 +119,7 @@ int main(int argc, char ** argv) {
       return EXIT_FAILURE;
   }
   questionFile.close();
-  
+
   // Do we have any questions? % todo->size is DIV_BY_ZERO otherwise
   if (questions->size() == 0) {
 	  std::cerr << "No question provided!" << std::endl;
