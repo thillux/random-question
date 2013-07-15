@@ -5,26 +5,25 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <regex>
 #include <chrono>
 #include <memory>
-#ifdef __gnu_linux__
+
+#if defined __gnu_linux__ || defined __APPLE__
 	#include <unistd.h>
 	#include <sys/time.h>
 	#include <termios.h>
-	#include <regex.h>
 	#include <fcntl.h>
 #endif
-#ifdef WIN32
+
+#if defined WIN32 || defined WIN64
 	#include <Windows.h>
 #endif
 
 
 // http://stackoverflow.com/questions/1413445/read-a-password-from-stdcin
 void SetStdinEcho(bool enable = true) {
-#ifdef WIN32
+#if defined WIN32 || defined WIN64 
     HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
     DWORD mode;
     GetConsoleMode(hStdin, &mode);
@@ -35,7 +34,8 @@ void SetStdinEcho(bool enable = true) {
         mode |= ENABLE_ECHO_INPUT;
 
     SetConsoleMode(hStdin, mode);
-#else
+#endif
+#if defined __gnu_linux__ || defined __APPLE__
     struct termios tty;
     tcgetattr(STDIN_FILENO, &tty);
     if( !enable )
@@ -48,24 +48,8 @@ void SetStdinEcho(bool enable = true) {
 }
 
 bool testForComment(std::string& line) {
-  #ifdef WIN32
   std::regex testRegex("^//.*$", std::regex_constants::extended);
   return std::regex_match(line, testRegex);
-  #endif
-
-  // stdlibc++ wasn't feature complete for C++11 at the time writing this code
-  // FIXME: if c++ lib supports this, remove the following code
-  #ifdef __gnu_linux__
-  int rv;
-  regex_t * exp = new regex_t;
-  rv = regcomp(exp, "^//.*", REG_EXTENDED);
-  if (rv != 0) {
-    std::cout << "regcomp failed with " << rv << std::endl;
-  }
-  bool match = regexec(exp, line.c_str(), 0, NULL, 0) == 0;
-  regfree(exp);
-  return match;
-  #endif
 }
 
 void readQuestions(std::ifstream& questionFile, std::vector<std::string>& questions) {
@@ -80,7 +64,7 @@ void readQuestions(std::ifstream& questionFile, std::vector<std::string>& questi
 
 unsigned int getRnd(void) {
   unsigned int rndNumber = 0;
-#ifdef __gnu_linux__
+#if defined __gnu_linux__ || defined __APPLE__
   int urandom = open("/dev/urandom", O_RDONLY);
   assert(urandom);
   read(urandom, &rndNumber, sizeof(unsigned int));
