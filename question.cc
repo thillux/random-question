@@ -8,16 +8,24 @@
 #include <chrono>
 #include <memory>
 
-#if defined __gnu_linux__ || defined __APPLE__
-	#include <unistd.h>
-	#include <sys/time.h>
-	#include <termios.h>
-	#include <fcntl.h>
+#ifdef __APPLE__
+#include <unistd.h>
+#include <sys/time.h>
+#include <termios.h>
+#include <fcntl.h>
+#include <regex>
+#endif
+
+#if defined __gnu_linux__
+  #include <unistd.h>
+  #include <sys/time.h>
+  #include <termios.h>
+  #include <fcntl.h>
   #include <regex.h>
 #endif
 
 #if defined WIN32 || defined WIN64
-	#include <Windows.h>
+  #include <Windows.h>
   #include <regex>
 #endif
 
@@ -49,7 +57,7 @@ void SetStdinEcho(bool enable = true) {
 }
 
 bool testForComment(std::string& line) {
-  #if defined WIN32 || defined WIN64
+  #if defined WIN32 || defined WIN64 || defined __APPLE__
     std::regex testRegex("^//.*$", std::regex_constants::extended);
     return std::regex_match(line, testRegex);
   #endif
@@ -57,7 +65,7 @@ bool testForComment(std::string& line) {
   // stdlibc++ wasn't feature complete for C++11 at the time writing this code
   // FIXME: if c++ lib supports this, remove the following code
 
-  #if defined __gnu_linux__ || defined __APPLE__
+  #if defined __gnu_linux__
     int rv;
     regex_t * exp = new regex_t;
     rv = regcomp(exp, "^//.*", REG_EXTENDED);
@@ -150,10 +158,12 @@ int main(int argc, char ** argv) {
 	t1 = clock::now();
     SetStdinEcho(true);
     milliseconds total_ms = std::chrono::duration_cast<milliseconds>(t1 - t0);
-    std::cout <<  total_ms.count() / 1000.0 << " seconds for answer!" << std::endl;
+    std::cout << total_ms.count() / 1000.0 << " seconds for answer!" << std::endl;
+    std::cout << std::endl;
     if (todo->empty()) {
         std::swap(todo, done);
         std::cout << "### Complete, starting again. ###" << std::endl;
+        std::cout << std::endl;
     }
   }
 
