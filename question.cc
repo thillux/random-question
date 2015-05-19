@@ -1,19 +1,19 @@
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <memory>
+#include <regex>
 #include <string>
 #include <vector>
-#include <chrono>
-#include <memory>
 
 #ifdef __APPLE__
-#include <unistd.h>
-#include <sys/time.h>
-#include <termios.h>
-#include <fcntl.h>
-#include <regex>
+  #include <unistd.h>
+  #include <sys/time.h>
+  #include <termios.h>
+  #include <fcntl.h>
 #endif
 
 #if defined __gnu_linux__
@@ -21,12 +21,10 @@
   #include <sys/time.h>
   #include <termios.h>
   #include <fcntl.h>
-  #include <regex.h>
 #endif
 
 #if defined WIN32 || defined WIN64
   #include <Windows.h>
-  #include <regex>
 #endif
 
 
@@ -57,25 +55,8 @@ void SetStdinEcho(bool enable = true) {
 }
 
 bool testForComment(std::string& line) {
-  #if defined WIN32 || defined WIN64 || defined __APPLE__
-    std::regex testRegex("^//.*$", std::regex_constants::extended);
-    return std::regex_match(line, testRegex);
-  #endif
-
-  // stdlibc++ wasn't feature complete for C++11 at the time writing this code
-  // FIXME: if c++ lib supports this, remove the following code
-
-  #if defined __gnu_linux__
-    int rv;
-    regex_t * exp = new regex_t;
-    rv = regcomp(exp, "^//.*", REG_EXTENDED);
-    if (rv != 0) {
-      std::cout << "regcomp failed with " << rv << std::endl;
-    }
-    bool match = regexec(exp, line.c_str(), 0, NULL, 0) == 0;
-    regfree(exp);
-    return match;
-  #endif
+  std::regex testRegex("^//.*$", std::regex_constants::extended);
+  return std::regex_match(line, testRegex);
 }
 
 void readQuestions(std::ifstream& questionFile, std::vector<std::string>& questions) {
